@@ -1,0 +1,9 @@
+/.env
+/.vscode/*
+/logs
+/node_modules
+/config/provider/index.js
+/Backup*
+/package-lock.json
+/data
+/package.json
