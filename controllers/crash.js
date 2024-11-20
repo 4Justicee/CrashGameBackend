@@ -108,7 +108,6 @@ async function checkWinners(multiplier) {
     if(winnings == 0 && multiplier >= autoCashOut) {     
       winnings = autoCashOut * betAmount;
       const u = await User.findOne({where:{id: uid}, order:[["id","desc"]]});
-      console.log("you win:", u.ethbalance, winnings);
       await u.setBalance(0, winnings, currency);      
       await roundInfo.addUserData('cashOutUserList', {
         uid,
@@ -238,7 +237,8 @@ async function startGame() {
       const now = Date.now();
       const secondsSinceStart = (now - startTime) / 1000;  
       multiplier = Math.pow(e, k * secondsSinceStart);  
-
+      wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier, e: (now - startTime)}}))
+      
       checkWinners(multiplier);
 
       if (multiplier > maxMulti) {  
