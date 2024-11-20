@@ -6,7 +6,7 @@ const sequelize = new Sequelize(config.database.name, config.database.user, conf
   dialect: config.database.type,
   port: config.database.port,
   logging: config.database.logging,
-  timezone: "+09:00",
+  timezone: "+08:00",
   pool: {
     max: 1000,
     min: 0,
