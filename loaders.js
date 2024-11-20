@@ -79,6 +79,6 @@ exports.startServerFunc = async () => {
   await serverFunc();
 };
 
-exports.webSocket = async (io) => {
-  connectWebSocket(io);
+exports.webSocket = async () => {
+  connectWebSocket();
 };

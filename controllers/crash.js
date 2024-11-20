@@ -53,7 +53,7 @@ async function processBetUsers(multi, key, hash) {
     })
   }
   Prepare.destroy({where:{}});
-  const  o = await RoundInfo.create({roundState: 0, betUserList: JSON.stringify(bets), cashOutUserList:'[]', autoBetUserList:'[]', roundMaxMulti: multi, nounce: hash, secretKey: key});
+  const  o = await RoundInfo.create({roundState: 0, betUserList: JSON.stringify(bets), cashOutUserList:'[]', roundMaxMulti: multi, nounce: hash, secretKey: key});
   currentRecordId = o.id;
 }
 

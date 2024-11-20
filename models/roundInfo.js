@@ -33,14 +33,7 @@ module.exports = (sequelize, Sequelize) => {
           const val = this.getDataValue("cashOutUserList");
           return JSON.parse(val);
         },
-      },
-      autoBetUserList: {
-        type: Sequelize.TEXT("long"),
-        get() {
-          const val = this.getDataValue("autoBetUserList");
-          return JSON.parse(val);
-        },
-      },
+      },      
       roundMaxMulti: {
         type: Sequelize.DOUBLE(50, 2),
         allowNull: false,
@@ -78,23 +71,16 @@ module.exports = (sequelize, Sequelize) => {
   );
 
   RoundInfo.prototype.addUserData = async function (type, obj) {  
-    // Load current data from the database to make sure it's up to date  
     await this.reload();  
     
-    let list = []; // Initialize empty array   
-  
-    // Check the type and parse the current data  
-    if (['betUserList', 'cashOutUserList', 'autoBetUserList'].includes(type)) {  
+    let list = []; 
+    if (['betUserList', 'cashOutUserList'].includes(type)) {  
       const currentData = this.getDataValue(type);  
-      if (currentData) { // If there's any existing data parse it  
+      if (currentData) { 
         list = JSON.parse(currentData);  
       }  
-      list.push(obj); // Add the new object to the list  
-  
-      // Update the field with new array after converting it back to string  
+      list.push(obj); 
       this.setDataValue(type, JSON.stringify(list));  
-  
-      // Call save() to update the model in the database  
       await this.save();  
     } else {  
       throw new Error("Invalid user list type");  

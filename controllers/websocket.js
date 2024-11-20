@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 
 const clients = new Set();  
 
-async function connectWebSocket (io) {
+async function connectWebSocket () {
   try {
     const port = config.gamePort;
     const wss = new WebSocket.Server({ port });
