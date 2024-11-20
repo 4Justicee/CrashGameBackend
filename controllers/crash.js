@@ -19,22 +19,6 @@ let startTime = Date.now();
 let currentRecordId = 0;
 const waitTime = config.waitTime;
 
-exports.gameSerivce = async (ws, message) => {
-  try {
-    
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-exports.closeGameService = async (ws, message) => {
-  try {
-
-  } catch (error) {
-    console.log(error);
-  }
-};
-
 async function processBetUsers(multi, key, hash) {
   const prepares = await Prepare.findAll();
   const bets = [];
@@ -349,6 +333,22 @@ async function betListFunc() {
     }
   }));
 }
+
+exports.gameSerivce = async (ws, message) => {
+  try {
+    
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+exports.closeGameService = async (ws, message) => {
+  try {
+
+  } catch (error) {
+    console.log(error);
+  }
+};
 
 exports.serverFunc = async function GameService() {
   await checkGameStart();
