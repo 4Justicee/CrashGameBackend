@@ -20,5 +20,4 @@ module.exports = {
 
   secretKey: process.env.SECRET_KEY,
   waitTime: process.env.WAIT_TIME,
-  cryptrKey: process.env.CRYPTR_KEY,
 };
