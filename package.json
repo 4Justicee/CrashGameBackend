@@ -15,6 +15,7 @@
         "axios": "^1.6.7",
         "compression": "^1.7.4",
         "cors": "^2.8.5",
+        "cron": "^3.2.1",
         "cronstrue": "^2.48.0",
         "crypto-token": "^1.0.1",
         "cryptr": "^6.3.0",

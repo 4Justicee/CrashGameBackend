@@ -9,6 +9,7 @@ const {calculateCrashMultiplier} = require("../utils/random")
 
 const crypto = require('crypto'); 
 const wsManager = require('./websocket');  
+const cron = require('cron')
 
 const e = Math.E;  // Euler's number
 const k = 0.2;  // Growth rate constant  
@@ -636,3 +637,26 @@ exports.cancelBet = async function (ws, o) {
     }))
   }
 };
+exports.scheduleRemoveOldRecords = async function (ws, o) {  
+  console.log('Schedule old data remove...');
+
+  const job = new cron.CronJob('0 0 1 * *', deleteOldRecords, null, true, 'America/Los_Angeles');  
+  job.start();
+};
+
+function deleteOldRecords() {  
+
+  const THIRTY_DAYS_AGO = new Date(new Date() - 30 * 24 * 60 * 60 * 1000);  
+
+  RoundInfo.destroy({  
+      where: {  
+          createdAt: {  
+              [Op.lt]: THIRTY_DAYS_AGO  // Op.lt is "less than"  
+          }  
+      }  
+  }).then(result => {  
+      console.log(`Deleted ${result} old records.`);  
+  }).catch(error => {  
+      console.error('Error while deleting old records:', error);  
+  });  
+}  

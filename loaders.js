@@ -9,7 +9,7 @@ const compression = require("compression");
 const cors = require("cors");
 const router = require("./controllers/routers");
 const config = require("./config/preference");
-const { serverFunc } = require(`./controllers/crash`);
+const { serverFunc, scheduleRemoveOldRecords } = require(`./controllers/crash`);
 const { connectWebSocket } = require("./controllers/websocket");
 
 exports.connectDb = async () => {
@@ -76,6 +76,7 @@ exports.loadExpress = ({ app }) => {
 };
 
 exports.startServerFunc = async () => {
+  scheduleRemoveOldRecords();
   await serverFunc();
 };
 
