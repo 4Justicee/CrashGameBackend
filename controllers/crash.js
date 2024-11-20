@@ -18,6 +18,8 @@ let gameRunning = false;
 let multiplier = 1.0;  
 let startTime = Date.now();
 let currentRecordId = 0;
+let timeRemaining = 0;
+
 const waitTime = config.waitTime;
 
 async function processBetUsers(multi, key, hash) {
@@ -226,32 +228,49 @@ async function gameCrashProcessing(multiplier) {
 }
 
 async function startGame() {      
-  console.log(`Game starting in ${waitTime} seconds...`);  
   const maxMulti = await gamePreProcessing();
 
-  setTimeout(async () => {  
+  wsManager.broadcastMessage(JSON.stringify({
+    type:'r',
+    params:{
+      t:timeRemaining
+    }
+  }));
+  
+  const waitTimer = setInterval(async ()=>{
+    timeRemaining -= 1;
+    console.log(`Game starting in ${timeRemaining} seconds...`);  
     
-    await gameStartProcessing();
+    wsManager.broadcastMessage(JSON.stringify({
+      type:'r',
+      params:{
+        t:timeRemaining
+      }
+    }));
 
-    const gameInterval = setInterval(() => {  
-      const now = Date.now();
-      const secondsSinceStart = (now - startTime) / 1000;  
-      multiplier = Math.pow(e, k * secondsSinceStart);  
-      wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier > maxMulti ? maxMulti: multiplier, e: (now - startTime)}}))
+    if(timeRemaining <= 0) {
+      clearInterval(waitTimer);
+      await gameStartProcessing();
 
-      checkWinners(multiplier);
+      const gameInterval = setInterval(() => {  
+        const now = Date.now();
+        const secondsSinceStart = (now - startTime) / 1000;  
+        multiplier = Math.pow(e, k * secondsSinceStart);  
+        wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier > maxMulti ? maxMulti: multiplier, e: (now - startTime)}}))
 
-      if (multiplier > maxMulti) {  
-        clearInterval(gameInterval);              
-        gameCrashProcessing(maxMulti);
-      }  
-      
-    }, 50);  
+        checkWinners(multiplier);
 
-  }, waitTime * 1000);  
+        if (multiplier > maxMulti) {  
+          clearInterval(gameInterval);              
+          gameCrashProcessing(maxMulti);
+        }        
+      }, 50);  
+    }    
+  }, 1000) 
 }
 
 async function checkGameStart() {  
+  timeRemaining = waitTime;
   if (!gameRunning) {  
       await startGame();  
   } else if (!gameRunning) {  
