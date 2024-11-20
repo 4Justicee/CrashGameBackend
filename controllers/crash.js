@@ -237,8 +237,8 @@ async function startGame() {
       const now = Date.now();
       const secondsSinceStart = (now - startTime) / 1000;  
       multiplier = Math.pow(e, k * secondsSinceStart);  
-      wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier, e: (now - startTime)}}))
-      
+      wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier > maxMulti ? maxMulti: multiplier, e: (now - startTime)}}))
+
       checkWinners(multiplier);
 
       if (multiplier > maxMulti) {  
