@@ -33,9 +33,11 @@ exports.connectDb = async () => {
         process.exit(0);
       }
     }
-
+    console.log("Please wait while transaction hash generating", Date.now());
     // synchronize
     await database.sync();  
+    console.log("hash table exist or finished.", Date.now());
+
     console.log("Connected successfully");
   } catch (error) {
     console.log(`Database connect failed... ${error.message}`);

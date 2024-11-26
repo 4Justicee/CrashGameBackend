@@ -1,4 +1,4 @@
-const queryString = require("querystring");
+const main  = require("../config/preference")
 
 module.exports = (sequelize, Sequelize) => {
   const RoundInfo = sequelize.define(
@@ -8,11 +8,6 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.INTEGER,
         primaryKey: true,
         autoIncrement: true,
-      },
-      roundIndex: {
-        type: Sequelize.DOUBLE(50, 2),
-        allowNull: false,
-        defaultValue: 0,
       },
       roundState: {
         type: Sequelize.TINYINT,
@@ -34,11 +29,6 @@ module.exports = (sequelize, Sequelize) => {
           return JSON.parse(val);
         },
       },      
-      roundMaxMulti: {
-        type: Sequelize.DOUBLE(50, 2),
-        allowNull: false,
-        defaultValue: 0,
-      },
       roundTotalDebits: {
         type: Sequelize.STRING,
         allowNull: false,
@@ -53,16 +43,6 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.STRING,
         allowNull: false,
         defaultValue: '0,0',
-      },
-      nounce: {
-        type: Sequelize.STRING,
-        allowNull: false,
-        defaultValue: '',
-      },
-      secretKey: {
-        type: Sequelize.STRING,
-        allowNull: false,
-        defaultValue: '',
       },
     },
     {
@@ -87,6 +67,6 @@ module.exports = (sequelize, Sequelize) => {
     }  
   };  
 
-
+  
   return RoundInfo;
 };

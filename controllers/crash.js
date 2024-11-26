@@ -1,14 +1,15 @@
 const MD5 = require("md5.js");
 const { Op } = require('sequelize');  
-const { User, Player, Agent, RoundInfo, Prepare, sequelize } = require("../models");
-const { GAME_ERR_MSG, GAME_RESPONSE_CODE } = require("../utils/constants");
+const { User, Playing, Transaction, RoundInfo, Prepare, sequelize } = require("../models");
 const jwt = require('jsonwebtoken');  
 const config = require("../config/preference")
 const {isEmpty} = require("../utils/empty");
-const {calculateCrashMultiplier} = require("../utils/random")
-
+const {calculateCrashMultiplier, getValueFromHash, randomInt, dec, enc} = require("../utils/random")
 const crypto = require('crypto'); 
 const wsManager = require('./websocket');  
+const { Mutex } = require('async-mutex');  
+const { resolveObjectURL } = require("buffer");
+const mutex = new Mutex();  
 
 const e = Math.E;  // Euler's number
 const k = 0.2;  // Growth rate constant  
@@ -18,10 +19,13 @@ let multiplier = 1.0;
 let startTime = Date.now();
 let currentRecordId = 0;
 let timeRemaining = 0;
+let hashGenerating = 0;
+let hashBuffer = [];
+let listTimer = 0;
 
 const waitTime = config.waitTime;
 
-async function processBetUsers(multi, key, hash) {
+async function processBetUsers() {
   const prepares = await Prepare.findAll();
   const bets = [];
 
@@ -38,9 +42,18 @@ async function processBetUsers(multi, key, hash) {
       autoCashOut
     })
   }
+
   Prepare.destroy({where:{}});
-  const  o = await RoundInfo.create({roundState: 0, betUserList: JSON.stringify(bets), cashOutUserList:'[]', roundMaxMulti: multi, nounce: hash, secretKey: key});
-  currentRecordId = o.id;
+
+  const release = await mutex.acquire();  
+  try {  
+    const  o = await RoundInfo.create({roundState: 0, betUserList: JSON.stringify(bets), cashOutUserList:'[]'});
+    currentRecordId = o.id;
+  }
+  finally {  
+    release();  
+  }   
+  
 }
 
 async function gamePreProcessing() {
@@ -48,10 +61,16 @@ async function gamePreProcessing() {
   multiplier = 1.0;  
   startTime = Date.now() + 7000; 
 
-  const seed = crypto.randomBytes(16).toString('hex');
-  const o = calculateCrashMultiplier(seed);
-  const maxMulti = o.crashPoint;
-  const hash = o.hash;
+  const t = await Transaction.findOne({
+    where:{
+      is_used: 0,
+    },
+    order:[["id","asc"]]
+  });
+
+  const maxMulti = getValueFromHash(dec(t.hash));
+  t.update({is_used: 1});
+
   wsManager.broadcastMessage(JSON.stringify({
     type:'GameWaiting',
     params: {
@@ -60,14 +79,21 @@ async function gamePreProcessing() {
     }
   }))
 
-  await processBetUsers(maxMulti, seed, hash);
+  await processBetUsers();
 
   return maxMulti;
 }
 
 async function gameStartProcessing() {
-  const roundInfo = await RoundInfo.findOne({where:{id: currentRecordId}});
-  await roundInfo.update({roundState: 1});
+  const release = await mutex.acquire();  
+  try {  
+    const roundInfo = await RoundInfo.findOne({where:{id: currentRecordId}});
+    await roundInfo.update({roundState: 1});
+  }
+  finally {  
+    release();  
+  } 
+    
   console.log(`Game is starting`);
   wsManager.broadcastMessage(JSON.stringify({
     type:'GameRunning',
@@ -79,7 +105,15 @@ async function gameStartProcessing() {
 }
 
 async function checkWinners(multiplier) {
-  const roundInfo = await RoundInfo.findOne({where:{id: currentRecordId}});
+  let roundInfo = null;
+  const release = await mutex.acquire();  
+  try {  
+    roundInfo = await RoundInfo.findOne({where:{id: currentRecordId}});
+  }
+  finally {  
+    release();  
+  } 
+
   let tempBetUsers = roundInfo.betUserList;
   let tempCashOutUsers = roundInfo.cashOutUserList;
 
@@ -110,11 +144,19 @@ async function checkWinners(multiplier) {
       winnings = autoCashOut * betAmount;
       const u = await User.findOne({where:{id: uid}, order:[["id","desc"]]});
       await u.setBalance(0, winnings, currency);      
-      await roundInfo.addUserData('cashOutUserList', {
-        uid,
-        cashOut: autoCashOut,
-        cashOutTime: Date.now()
-      });
+
+      const release = await mutex.acquire();  
+      try {  
+        await roundInfo.addUserData('cashOutUserList', {
+          uid,
+          cashOut: autoCashOut,
+          cashOutTime: Date.now()
+        });
+      }
+      finally {  
+        release();  
+      } 
+
       wsManager.broadcastMessage(JSON.stringify({
         type:'PlayerWon',
         params:{
@@ -128,9 +170,25 @@ async function checkWinners(multiplier) {
   }
 }
 
+const sendRemainingTimeToUsers = (time) => {
+  wsManager.broadcastMessage(JSON.stringify({
+    type:'r',
+    params:{
+      t:time
+    }
+  }));
+}
+
 async function gameCrashProcessing(multiplier) {
   console.log('Game crashed at multiplier:', multiplier);  
-  const roundInfo = await RoundInfo.findOne({where:{roundState: 1}});
+  let roundInfo = null;
+  let release = await mutex.acquire();  
+  try {  
+    roundInfo = await RoundInfo.findOne({where:{roundState: 1}});
+  }
+  finally {  
+    release();  
+  } 
 
   const betUserList = roundInfo.betUserList;
   const cashOutUserList = roundInfo.cashOutUserList;
@@ -197,15 +255,26 @@ async function gameCrashProcessing(multiplier) {
   
   let ETHRtp = totalETHCredit == 0 ? 0 : (totalETHCredit / totalETHDebit) * 100
   let BTCRtp = totalBTCCredit == 0 ? 0 : (totalBTCCredit / totalBTCDebit) * 100
-
-  await roundInfo.update({
-    roundState: 2, 
-    roundTotalDebits:`${totalETHDebit},${totalBTCDebit}`, 
-    roundTotalCredits:`${totalETHCredit},${totalBTCCredit}`,
-    roundRtps: `${ETHRtp},${BTCRtp}`,
-  });
+  
+  release = await mutex.acquire()
+  try {
+    await roundInfo.update({
+      roundState: 2, 
+      roundTotalDebits:`${totalETHDebit},${totalBTCDebit}`, 
+      roundTotalCredits:`${totalETHCredit},${totalBTCCredit}`,
+      roundRtps: `${ETHRtp},${BTCRtp}`,
+    });
+  }
+  finally {  
+    release();  
+  } 
 
   const duration = Date.now() - startTime;
+  const t = await Transaction.findOne({where:{is_used: 1}, order:[["id","desc"]]});
+  let seed = "";
+  if(t.init_seed != "") {    
+    seed = dec(t.init_seed);
+  }
 
   wsManager.broadcastMessage(JSON.stringify({
     type:'GameCrashed',
@@ -216,10 +285,12 @@ async function gameCrashProcessing(multiplier) {
         multiplier,
         players:playersObj,
         winners:winnerObj,
-        hash:roundInfo.nounce,
+        hash:dec(t.hash),
+        seed
       }
     }
   }))
+
   currentRecordId = 0;
   gameRunning = false;  
   // Wait 7 seconds after crash then check to restart game  
@@ -228,24 +299,15 @@ async function gameCrashProcessing(multiplier) {
 
 async function startGame() {      
   const maxMulti = await gamePreProcessing();
+  listTimer = setInterval(betListFunc, 1000);
 
-  wsManager.broadcastMessage(JSON.stringify({
-    type:'r',
-    params:{
-      t:timeRemaining
-    }
-  }));
+  sendRemainingTimeToUsers(timeRemaining)
   
   const waitTimer = setInterval(async ()=>{
     timeRemaining -= 1;
-    console.log(`Game starting in ${timeRemaining} seconds...`);  
-    
-    wsManager.broadcastMessage(JSON.stringify({
-      type:'r',
-      params:{
-        t:timeRemaining
-      }
-    }));
+    console.log(`Game starting in ${timeRemaining} seconds...`);      
+
+    sendRemainingTimeToUsers(timeRemaining);
 
     if(timeRemaining <= 0) {
       clearInterval(waitTimer);
@@ -255,13 +317,17 @@ async function startGame() {
         const now = Date.now();
         const secondsSinceStart = (now - startTime) / 1000;  
         multiplier = Math.pow(e, k * secondsSinceStart);  
+
         wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier > maxMulti ? maxMulti: multiplier, e: (now - startTime)}}))
 
         checkWinners(multiplier);
 
         if (multiplier > maxMulti) {  
-          clearInterval(gameInterval);              
+          clearInterval(gameInterval);
+          clearInterval(listTimer);
+
           gameCrashProcessing(maxMulti);
+          transactionFunc();
         }        
       }, 50);  
     }    
@@ -269,16 +335,127 @@ async function startGame() {
 }
 
 async function checkGameStart() {  
-  timeRemaining = waitTime;
-  if (!gameRunning) {  
-      await startGame();  
-  } else if (!gameRunning) {  
-      console.log("Waiting for players...");  
+  timeRemaining = waitTime;   
+  console.log("Waiting for players...");  
+
+  await startGame();  
+}  
+
+async function generateHashFunction() {  
+  let currentObj = {};  
+  // Generate an initial seed using SHA-256 based on the current timestamp and a random number.  
+  const data = await Transaction.findOne({order:[['id', 'desc']]})
+  const lastId = data.id;
+
+  const nowTime = Date.now();
+  const randomValue = randomInt(1, 10000000);
+
+  const initialSeed = crypto.createHash('sha256')  
+                      .update(`${nowTime}:${randomValue}`)  
+                      .digest('hex');  
+
+  // Retrieve the maximum number of turns from the configuration, ensuring it's a Number.  
+  const maxTurns = Number(config.max_turns);  
+
+  // Calculate how many batches (each of 10,000 items) needed to process all turns.  
+  const numBatches = Math.ceil(maxTurns / 10000);  
+
+  for (let i = 0; i < numBatches; i++) {  
+    const recordsBatch = [];  
+    const maxj = (i == numBatches - 1) ? maxTurns % 10000 : 10000;
+
+    for (let j = 0; j < maxj; j++) {  
+      const index = i * 10000 + j;  
+
+      if (index === 0) {  
+        // Calculate the crash multiplier for the first item using the initial seed.  
+        currentObj = calculateCrashMultiplier(initialSeed);  
+      } else {  
+        // For subsequent items, use the previous hash to calculate the next multiplier.  
+        currentObj = calculateCrashMultiplier(currentObj.hash);  
+      }  
+
+      // Prepare record to be pushed with conditionally setting the initial seed.  
+      recordsBatch.push({  
+        id: lastId + maxTurns - index,  
+        hash: enc(currentObj.hash),  
+        init_seed: index === 0 ? enc(`${initialSeed}-${nowTime}-${randomValue}`) : ''  
+      });  
+    }  
+
+    // Push the batch of records to the global buffer for later processing.  
+    hashBuffer.push(recordsBatch);  
+  }  
+
+  // Set flag to indicate hash generation has completed and bulk creation can start.  
+  hashGenerating = 2;  
+}  
+
+async function transactionFunc() {  
+  // Acquire the mutex lock before proceeding with the database operation.  
+  const release = await mutex.acquire();  
+  
+  try {  
+    // .count() method to determine the number of entries that haven't been used yet.  
+    const count = await Transaction.count({  
+      where: {  
+        is_used: 0  
+      }  
+    });  
+
+    // Check if the unused entries are less than 20% of max_turns and hash generation is not active.  
+    if (count <= config.max_turns * 0.2 && hashGenerating === 0) {  
+      hashGenerating = 1;  // Flag that hash generation is starting.  
+      setTimeout(generateHashFunction, 1000);  // Schedule hash generation after 1 second.  
+    }  
+  } finally {  
+    release();  // Always release the mutex lock regardless of how try block exits.  
+  }  
+
+  // Check if there's an indication to start bulk creation.  
+  if (hashGenerating === 2) {  
+    await timedBulkCreate();  // Call function for bulk DB operations as needed.  
   }  
 }  
 
+async function timedBulkCreate() {  
+  const startTime = Date.now();  
+  (async function run() {  
+    while (true) {  // Loop continuously until a break condition is met.  
+      if (hashBuffer.length == 0) {  
+          hashGenerating = 0;  // Set to 0 when buffer is empty.  
+          break;  
+      }  
+      
+      const elem = hashBuffer.pop();  // Pop an element from the buffer.  
+      const release = await mutex.acquire();  // Acquire mutex lock.  
+      try {  
+          await Transaction.bulkCreate(elem);  // Attempt bulk database creation.  
+      } catch (error) {  
+          console.error('Error during bulk creation:', error);  
+      } finally {  
+          release();  // Ensure the mutex is released.  
+      }  
+
+      const elapsedTime = Date.now() - startTime;  
+      if (elapsedTime > 4000) {  // More than 4 seconds.  
+        console.log("Stopped after 4 seconds");  
+        break;  
+      }  
+    }  
+  })();  
+}  
+
 async function betListFunc() {
-  const roundInfo = await RoundInfo.findOne({where:{roundState: {[Op.not]: 2}},order:[["id","desc"]]});
+  let roundInfo = null;
+  const release = await mutex.acquire();  
+  try {  
+    roundInfo = await RoundInfo.findOne({where:{roundState: {[Op.not]: 2}},order:[["id","desc"]]});
+  }
+  finally {  
+    release();  
+  } 
+
   if(isEmpty(roundInfo))  {
     wsManager.broadcastMessage(JSON.stringify({
       type:'BetList',
@@ -371,10 +548,6 @@ exports.closeGameService = async (ws, message) => {
 
 exports.serverFunc = async function GameService() {
   await checkGameStart();
-
-  //send BetList
-  setInterval(betListFunc, 1000);
-
 };
 
 exports.authenticate = async function (ws) {

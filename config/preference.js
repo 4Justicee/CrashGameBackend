@@ -20,4 +20,6 @@ module.exports = {
 
   secretKey: process.env.SECRET_KEY,
   waitTime: process.env.WAIT_TIME,
+  rtp: process.env.rtp,
+  max_turns: process.env.MAX_TURNS
 };
