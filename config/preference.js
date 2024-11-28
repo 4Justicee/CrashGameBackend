@@ -20,7 +20,7 @@ module.exports = {
 
   secretKey: process.env.SECRET_KEY,
   waitTime: process.env.WAIT_TIME,
-  rtp: process.env.rtp,
+  rtp: process.env.RTP,
   max_turns: process.env.MAX_TURNS,
   currencies: [
     "BTC",

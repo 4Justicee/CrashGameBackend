@@ -45,18 +45,14 @@ exports.calculateCrashMultiplier = (serverSeed, salt="")=>{
 
 exports.getValueFromHash = (hash) => {
   const nBits = 52; // number of most significant bits to use
-
+  
   const hex = hash.substring(0, 13);  
   const decimalValue = parseInt(hex, 16);  
-
   let X = decimalValue / Math.pow(2, nBits); // uniformly distributed in [0; 1)
   X = parseFloat(X.toPrecision(9));
-
   X = main.rtp / (1 - X);
-
   const result = Math.floor(X);
   const crashPoint = Math.max(1, result / 100);
-
   return crashPoint;
 }
 
@@ -71,7 +67,6 @@ exports.dec = (data) => {
   let decrypted = decipher.update(data, 'base64', 'utf8');  
   decrypted += decipher.final('utf8');   
  
-
   return decrypted;
 }
 
