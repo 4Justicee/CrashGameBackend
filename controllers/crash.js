@@ -10,6 +10,7 @@ const wsManager = require('./websocket');
 const { Mutex } = require('async-mutex');  
 const { resolveObjectURL } = require("buffer");
 const balance = require("../models/balance");
+const autobet = require("../models/autobet");
 const mutex = new Mutex();  
 
 const e = Math.E;  // Euler's number
@@ -26,30 +27,79 @@ let listTimer = 0;
 
 const waitTime = config.waitTime;
 
-async function updateAndDeleteAutobets() {  
+async function updateAndDeleteAutobets(bets) {  
   // Start a transaction  
   const t = await sequelize.transaction();  
-
+  const clients = wsManager.getClients(); // Ensuring this returns a Set of WebSocket clients  
   try {  
-      // Decrement the count  
-      await AutoBet.update(  
-          { autoCount: sequelize.literal('autoCount - 1') },  
-          { where: {}, transaction: t } // Perform this operation within the transaction  
-      );  
+      // Fetch all AutoBet entries  
+      const autoBets = await AutoBet.findAll({ transaction: t });  
 
-      // Delete where count is now 0  
-      await AutoBet.destroy({  
-          where: {  
-            autoCount: 0  
-          },  
-          transaction: t // Perform this operation within the transaction  
-      });  
+      for (let i = 0; i < autoBets.length; i++) {  
+          const autoBet = autoBets[i];  
+          const betAmount = autoBet.betAmount;  
+
+          // Push the autobet details to bets array  
+          bets.push({  
+              uid: autoBet.user_id,  
+              currency: autoBet.currency,  
+              betAmount: autoBet.betAmount,  
+              autoCashOut: autoBet.autoCashOut  
+          });  
+
+          // Check the balance  
+          const balance = await Balance.findOne({  
+              where: { user_id: autoBet.user_id, currency: autoBet.currency },  
+              transaction: t  
+          });  
+
+          if (!balance || balance.balance < betAmount) {             
+            for (let client of clients) { // Correct iteration over a Set  
+                if (client.id == autoBet.user_id) { // Make sure you reference the correct variable for user_id  
+                    client.send(JSON.stringify({
+                      type:'auto_cancel',
+                      params: {
+                        success:true
+                      }
+                    })); // Correct method to send a message over WebSocket  
+                }  
+            }  
+            continue; // Correct use of continue to skip to the next iteration  
+          } 
+          await balance.setBalance(betAmount, 0);
+
+          // Decrement the count  
+          await autoBet.decrement('autoCount', { transaction: t });  
+
+          // Reload the autoBet after decrement to fetch the updated autoCount  
+          await autoBet.reload({ transaction: t });  
+
+          for (let client of clients) { // Correct iteration over a Set  
+            if (client.uid == autoBet.user_id) { // Make sure you reference the correct variable for user_id  
+              const balances = await Balance.findAll({attributes:["user_id","currency","balance"], where:{user_id: autoBet.user_id}, raw:true});             
+                client.send(JSON.stringify({
+                  type:'auto_count',
+                  params: {
+                    success:true,
+                    count: autoBet.autoCount,
+                    balance: balances,
+                  }
+                })); // Correct method to send a message over WebSocket  
+            }  
+          } 
+
+          // Delete the autobet if its count reaches zero  
+          if (autoBet.autoCount === 0) {  
+              await autoBet.destroy({ transaction: t });  
+          }  
+      }  
 
       // If everything went well, commit the transaction  
       await t.commit();  
   } catch (error) {  
       // If something went wrong, rollback the transaction  
       await t.rollback();  
+      console.error("Failed to process autobets:", error);  
       throw error; // Re-throw the error to manage it in the outer scope if necessary  
   }  
 }  
@@ -78,11 +128,7 @@ async function processBetUsers() {
 
   Prepare.destroy({where:{}});
 
-  const a = await AutoBet.findAll({});
-  for(let i = 0; i < a.length; i++) {
-    addArray(a[i], bets);
-  }
-  await updateAndDeleteAutobets();
+  await updateAndDeleteAutobets(bets);
 
   const release = await mutex.acquire();  
   try {  
@@ -221,7 +267,7 @@ const sendRemainingTimeToUsers = (time) => {
 }
 
 async function gameCrashProcessing(multiplier) {
-  //console.log('Game crashed at multiplier:', multiplier);  
+  console.log('Game crashed at multiplier:', multiplier);  
   let roundInfo = null;
   let release = await mutex.acquire();  
   try {  
@@ -347,7 +393,7 @@ async function startGame() {
   
   const waitTimer = setInterval(async ()=>{
     timeRemaining -= 1;
-    //console.log(`Game starting in ${timeRemaining} seconds...`);      
+    console.log(`Game starting in ${timeRemaining} seconds...`);      
 
     sendRemainingTimeToUsers(timeRemaining);
 
@@ -679,6 +725,17 @@ exports.placeBet = async function (ws, o) {
     
     let preparing = 0;
     if(isEmpty(lastRound)) {
+      const p = await Prepare.findOne({where:{user_id: u.id}});
+      if(!isEmpty(p)) {
+        return ws.send(JSON.stringify({
+          type:'placeBet',
+          params: {
+            success:false,
+            msg: 'already betted'
+          }
+        }))
+      }
+
       Prepare.create({user_id: u.id, currency:o.currency, betAmount: o.betAmount, autoCashOut: o.autoCashOut})
       preparing = 1;
     }
@@ -826,76 +883,94 @@ exports.cashOut = async function (ws, o) {
   }
 };
 
+
 exports.cancelBet = async function (ws, o) {  
-  try{
+  try {  
+    // Verify token and retrieve user  
     const decoded = jwt.verify(o.token, config.secretKey);  
-    const u = await User.findOne({where:{token: decoded.token}});
-    const lastRound = await RoundInfo.findOne({
-      where:{      
-        roundState: 0,
-      },
-      order:[["id","desc"]],
-    });
+    const user = await User.findOne({where: {token: decoded.token}});  
+    if (!user) throw new Error('User not found');  
 
-    if(isEmpty(lastRound)) {
-      ws.send(JSON.stringify({
-        type:'cancelBet',
-        params: {
-          success:false,
-          msg:'can not cancel bet while playing'
-        }
-      }))
-      return;
-    }
-
-    let currency = 'ETH';
-    let betAmount = 0;
-    let found = 0;
-    const betUsers = lastRound.betUserList;
-
-    for(let i = 0; i < betUsers.length; i++) {
-      if(betUsers[i].uid == u.id) {
-        betAmount = betUsers[i].betAmount;
-        currency = betUsers[i].currency;
-        found = 1;
-        betUsers.splice(i, 1);
-        break;
-      }
-    }
-
-    const b = await Balance.findOne({where:{user_id: u.id, currency}});
-    await b.setBalance(0, betAmount);
-
-    const balances = await Balance.findAll({attributes:["user_id","currency","balance"], where:{user_id: u.id}, raw:true});
-
-    if(found == 1) {
-      await lastRound.update({
-        betUserList: JSON.stringify(betUsers)
-      });
-    }
-    else {
-      await Prepare.destroy({where:{user_id: u.id}});
-    }
-
-    ws.send(JSON.stringify({
-      type:'cancelBet',
-      params: {
-        success:true,
-        balance: balances
-      }
-    }))
-  }
-  catch(error) {
-    console.log(error);
+    // Find any existing preparation for the user  
+    const preparation = await Prepare.findOne({where: {user_id: user.id}});  
     
-    ws.send(JSON.stringify({
-      type:'PlayerWon',
-      params: {
-        success:false,
-      }
-    }))
-  }
-};
+    if (preparation) {  
+      return await handlePreparedBetCancellation(user, preparation, ws);  
+    }  
+
+    // Handle cancellations when no preparation is found  
+    return await handleActiveRoundBetCancellation(user, ws);  
+  } catch (error) {  
+    console.error(error);  
+    ws.send(JSON.stringify({ type: 'PlayerWon', params: { success: false } }));  
+  }  
+};  
+
+async function handlePreparedBetCancellation(user, preparation, ws) {  
+  const {currency, betAmount} = preparation;  
+  const balance = await updateBalancePlus(user.id, currency, betAmount);  
+
+  await Prepare.destroy({where: {user_id: user.id}});  
+  
+  ws.send(JSON.stringify({  
+    type: 'cancelBet',  
+    params: {  
+      success: true,  
+      balance  
+    }  
+  }));  
+}  
+
+async function handleActiveRoundBetCancellation(user, ws) {  
+  const lastRound = await RoundInfo.findOne({  
+    where: { roundState: 0 },  
+    order: [["id", "desc"]],  
+  });  
+
+  if (!lastRound) {  
+    ws.send(JSON.stringify({  
+      type: 'cancelBet',  
+      params: { success: false, msg: 'Cannot cancel bet while playing' }  
+    }));  
+    return;  
+  }  
+
+  const betUsers = lastRound.betUserList; // Assuming this is stored as JSON string  
+  const index = betUsers.findIndex(bet => bet.uid === user.id);  
+
+  if (index === -1) {  
+    ws.send(JSON.stringify({  
+      type: 'cancelBet',  
+      params: { success: false }  
+    }));  
+    return;  
+  }  
+
+  const {betAmount, currency} = betUsers[index];  
+  betUsers.splice(index, 1);  
+
+  const balance = await updateBalancePlus(user.id, currency, betAmount);  
+
+  await lastRound.update({ betUserList: JSON.stringify(betUsers) });  
+
+  ws.send(JSON.stringify({  
+    type: 'cancelBet',  
+    params: {  
+      success: true,  
+      balance  
+    }  
+  }));  
+}  
+
+async function updateBalancePlus(userId, currency, amount) {  
+  const balanceRecord = await Balance.findOne({ where: {user_id: userId, currency}});  
+  await balanceRecord.setBalance(0, amount);  
+  return Balance.findAll({  
+    attributes: ["user_id", "currency", "balance"],   
+    where: {user_id: userId},   
+    raw: true  
+  });  
+}  
 
 exports.autoBet = async function (ws, o) {  
   try{
@@ -937,7 +1012,8 @@ exports.autoBet = async function (ws, o) {
     ws.send(JSON.stringify({
       type:'autoBet',
       params: {
-        success:true,          
+        success:true,
+        count: o.autoCount, 
       }
     }))
   }
@@ -975,6 +1051,7 @@ exports.cancelAutoBet = async function (ws, o) {
       type:'cancelAutoBet',
       params: {
         success:true,          
+        data: 0,
       }
     }))
   }
@@ -985,6 +1062,7 @@ exports.cancelAutoBet = async function (ws, o) {
       type:'cancelAutoBet',
       params: {
         success:false,
+        data: 0,
       }
     }))
   }
