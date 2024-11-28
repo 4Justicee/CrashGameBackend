@@ -916,7 +916,7 @@ async function handlePreparedBetCancellation(user, preparation, ws) {
     type: 'cancelBet',  
     params: {  
       success: true,  
-      balance  
+      balance
     }  
   }));  
 }  
