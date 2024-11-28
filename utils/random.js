@@ -21,6 +21,10 @@ function generateHash(seed) {
   return crypto.createHash('sha256').update(seed).digest('hex');  
 }  
 
+exports.isSame = (value1, value2)=> {  
+  return Math.abs(value1 - value2) < 1e-8;  
+}  
+
 exports.calculateCrashMultiplier = (serverSeed, salt="")=>{  
   const nBits = 52; // number of most significant bits to use
 
