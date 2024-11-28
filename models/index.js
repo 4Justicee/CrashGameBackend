@@ -20,6 +20,10 @@ const db = {};
 db.User = require("./user")(sequelize, Sequelize);
 db.RoundInfo = require("./roundInfo")(sequelize, Sequelize);
 db.Prepare = require("./prepare")(sequelize, Sequelize);
+db.Transaction = require("./transaction")(sequelize, Sequelize);
+db.Balance = require("./balance")(sequelize, Sequelize);
+db.AutoBet = require("./autobet")(sequelize, Sequelize);
+
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
@@ -33,6 +37,7 @@ db.sync = async () => {
   });
 
   await Promise.all(associatePromises);
+  await db["Transaction"].migrate();
 };
 
 module.exports = db;

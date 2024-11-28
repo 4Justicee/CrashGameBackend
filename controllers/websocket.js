@@ -29,12 +29,19 @@ async function connectWebSocket () {
           if(o.type == 'cancelBet') {
             crashController.cancelBet(ws, o);
           }
+          if(o.type == 'autoBet') {
+            crashController.autoBet(ws, o);
+          }
+          if(o.type == 'cancelAutoBet') {
+            crashController.cancelAutoBet(ws, o);
+          }
         });
       
         // Handle client disconnection
         ws.on('close', () => {
           console.log('Client disconnected');
           clients.delete(ws);  // Add new client to the set  
+          console.log("connected users:",clients.size);
         });
     });
   } catch (error) {
