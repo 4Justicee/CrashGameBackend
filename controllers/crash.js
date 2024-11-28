@@ -658,12 +658,14 @@ exports.login = async function (ws, o) {
     const decoded = jwt.verify(o.token, config.secretKey);    
 
     let u = await User.findOne({where:{token: decoded.token}});
-    ws.uid = u.id;
+   
 
     if(isEmpty(u)) {
       u = await User.create({token: decoded.token});      
     }
 
+    ws.uid = u.id;
+    
     const currencies = config.currencies;
 
     let b = await Balance.findAll({attributes:["user_id","currency","balance"], where:{user_id: u.id}, raw:true});
@@ -1043,6 +1045,18 @@ function deleteOldRecords() {
               [Op.lt]: THIRTY_DAYS_AGO  // Op.lt is "less than"  
           }  
       }  
+  }).then(result => {  
+      console.log(`Deleted ${result} old records.`);  
+  }).catch(error => {  
+      console.error('Error while deleting old records:', error);  
+  });  
+
+  Transaction.destroy({  
+    where: {  
+        createdAt: {  
+            [Op.lt]: THIRTY_DAYS_AGO  // Op.lt is "less than"  
+        }  
+    }  
   }).then(result => {  
       console.log(`Deleted ${result} old records.`);  
   }).catch(error => {  
