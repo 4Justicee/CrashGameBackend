@@ -1,58 +1,58 @@
-const { isEmpty } = require("../utils/empty");
 module.exports = (sequelize, Sequelize) => {
-  const Balance = sequelize.define(
-    "balance",
-    {
-      id: {
-        type: Sequelize.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-      },
-      user_id: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-      },
-      currency: {
-        type: Sequelize.STRING,
-        allowNull: false,
-        defaultValue: "",
-      },
-      balance: {
-        type: Sequelize.DOUBLE(50, 2),
-        allowNull: false,
-        defaultValue: 0,
-      },
-      realRtp: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        defaultValue: '0.0',
-      },
-      targetRtp: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        defaultValue: '80',
-      },
-      totalDebit: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        defaultValue: '0.0',
-      },
-      totalCredit: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        defaultValue: '0.0',
-      },      
-    },
-    {
-      timestamps: true,
-      indexes: [ // Define indexes in the model options  
+  const Balance = sequelize.define(  
+    "Balance",  // Naming the model "Balance" to use it in code  
+    {  
+      id: {  
+        type: Sequelize.INTEGER,  
+        primaryKey: true,  
+        autoIncrement: true,  
+      },  
+      user_id: {  
+        type: Sequelize.INTEGER,  
+        allowNull: false,  
+        defaultValue: 0,  
+      },  
+      currency: {  
+        type: Sequelize.STRING,  
+        allowNull: false,  
+        defaultValue: "",  
+      },  
+      balance: {  // Changed the name to avoid confusion with the model name  
+        type: Sequelize.DOUBLE,  // Using DECIMAL for monetary values  
+        allowNull: false,  
+        defaultValue: 0,  
+      },  
+      realRtp: {  
+        type: Sequelize.FLOAT,  
+        allowNull: false,  
+        defaultValue: 0.0,  
+      },  
+      targetRtp: {  
+        type: Sequelize.FLOAT,  
+        allowNull: false,  
+        defaultValue: 80.0,  
+      },  
+      totalDebit: {  
+        type: Sequelize.FLOAT,  
+        allowNull: false,  
+        defaultValue: 0.0,  
+      },  
+      totalCredit: {  
+        type: Sequelize.FLOAT,  
+        allowNull: false,  
+        defaultValue: 0.0,  
+      },  
+    },  
+    {  
+      timestamps: true,  
+      tableName: 'originals_crash_balance',  // Custom table name with prefix  
+      indexes: [  // Optimizing user_id lookup  
         {  
-          fields: ['user_id'], // Indexes the user_id field  
+          fields: ['user_id'],   
         },  
-      ],
-    }
-  );
+      ],  
+    }  
+  );  
 
   Balance.prototype.setBalance = async function (debit, credit) {
     let rtp = this.targetRtp;

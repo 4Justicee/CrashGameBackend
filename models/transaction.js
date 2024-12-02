@@ -17,7 +17,7 @@ module.exports = (sequelize, Sequelize) => {
         defaultValue: '',
       },
       is_used:{
-        type: Sequelize.TINYINT,
+        type: Sequelize.SMALLINT,
         allowNull: false,
         defaultValue: 0,
       },
@@ -29,6 +29,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     {
       timestamps: true,
+      tableName: 'originals_crash_transaction', // Prefixing the table name as per your requirement  
     }
   );
 

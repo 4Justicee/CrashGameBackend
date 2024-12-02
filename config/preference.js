@@ -16,6 +16,7 @@ module.exports = {
     user: process.env.DB_USER,
     port: parseInt(process.env.DB_PORT),
     pass: process.env.DB_PASS,
+    url : process.env.DATABASE_URL
   },
 
   secretKey: process.env.SECRET_KEY,

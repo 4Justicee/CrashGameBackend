@@ -21,6 +21,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     {
       timestamps: true,
+      tableName: 'originals_crash_user', // Prefixing the table name as per your requirement  
     }
   );
 

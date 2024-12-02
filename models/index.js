@@ -1,43 +1,48 @@
-const Sequelize = require("sequelize");
-const config = require("../config/preference");
+const Sequelize = require("sequelize");  
+const config = require("../config/preference");  
 
-const sequelize = new Sequelize(config.database.name, config.database.user, config.database.pass, {
-  host: config.database.host,
-  dialect: config.database.type,
-  port: config.database.port,
-  logging: config.database.logging,
-  timezone: "+08:00",
-  pool: {
-    max: 1000,
-    min: 0,
-    acquire: 60000,
-    idle: 30000,
-  },
-});
+const sequelize = new Sequelize(  
+  config.database.url,  
+  {  
+    dialect: 'postgres',  // Changed from MySQL or other to PostgreSQL  
+    port: config.database.port,  
+    logging: config.database.logging,  
+    timezone: "+08:00",  
+    pool: {  
+      max: 1000,  
+      min: 0,  
+      acquire: 60000,  
+      idle: 30000,  
+    },  
+  }  
+);  
 
-const db = {};
+const db = {};  
 
-db.User = require("./user")(sequelize, Sequelize);
-db.RoundInfo = require("./roundInfo")(sequelize, Sequelize);
-db.Prepare = require("./prepare")(sequelize, Sequelize);
-db.Transaction = require("./transaction")(sequelize, Sequelize);
-db.Balance = require("./balance")(sequelize, Sequelize);
-db.AutoBet = require("./autobet")(sequelize, Sequelize);
+db.User = require("./user")(sequelize, Sequelize);  
+db.RoundInfo = require("./roundInfo")(sequelize, Sequelize);  
+db.Prepare = require("./prepare")(sequelize, Sequelize);  
+db.Transaction = require("./transaction")(sequelize, Sequelize);  
+db.Balance = require("./balance")(sequelize, Sequelize);  
+db.AutoBet = require("./autobet")(sequelize, Sequelize);  
 
-db.Sequelize = Sequelize;
-db.sequelize = sequelize;
+db.Sequelize = Sequelize;  
+db.sequelize = sequelize;  
 
-db.sync = async () => {
-  await db.sequelize.sync();
+db.sync = async () => {  
+  await db.sequelize.sync();  
 
-  const associatePromises = Object.keys(db).map((modelName) => {
-    if (db[modelName].associate) {
-      return db[modelName].associate(db);
-    }
-  });
+  const associatePromises = Object.keys(db).map((modelName) => {  
+    if (db[modelName].associate) {  
+      return db[modelName].associate(db);  
+    }  
+    return null; // Added to avoid possible undefined returns in-map  
+  });  
 
-  await Promise.all(associatePromises);
-  await db["Transaction"].migrate();
-};
+  await Promise.all(associatePromises);  
+  if (db["Transaction"] && db["Transaction"].migrate) {  
+    await db["Transaction"].migrate();  
+  }  
+};  
 
-module.exports = db;
+module.exports = db;  

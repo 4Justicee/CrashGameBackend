@@ -2,7 +2,7 @@ const fs = require("fs");
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");  // Changed from mysql2 to pg 
 const database = require("./models");
 const bodyParser = require("body-parser");
 const compression = require("compression");
@@ -12,39 +12,39 @@ const config = require("./config/preference");
 const { serverFunc, scheduleRemoveOldRecords } = require(`./controllers/crash`);
 const { connectWebSocket } = require("./controllers/websocket");
 
-exports.connectDb = async () => {
-  try {
-    try {
-      const conn = await mysql.createConnection({
-        host: config.database.host,
-        user: config.database.user,
-        password: config.database.pass,
-        port: config.database.port,
-      });
+exports.connectDb = async () => {  
+  try {  
+    const pool = new Pool({  
+      connectionString: config.database.url
+    });  
 
-      console.log(`Database (${config.database.name}) creating...`);
+    const client = await pool.connect();  
+    try {  
+      console.log(`Database (${config.database.name}) creating...`);  
 
-      await conn.query("CREATE DATABASE `" + config.database.name + "` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;");
-    } catch (error) {
-      if (error.code == "ER_DB_CREATE_EXISTS") {
-        console.log(`Database already exists.`);
-      } else {
-        console.log(`Database creating failed... ${error.message}`);
-        process.exit(0);
-      }
-    }
-    console.log("Please wait while transaction hash generating", Date.now());
-    // synchronize
+      //await client.query(`CREATE DATABASE "${config.database.name}"`);  
+    } catch (error) {  
+      if (error.code === '42P04') {  // 42P04 is the code for "database already exists"  
+        console.log(`Database already exists.`);  
+      } else {  
+        console.log(`Database creation failed... ${error.message}`);  
+        process.exit(0);  
+      }  
+    } finally {  
+      client.release();  
+    }  
+
+    console.log("Please wait while transaction hash generating", Date.now());  
+    // Synchronize  
     await database.sync();  
-    console.log("hash table exist or finished.", Date.now());
+    console.log("Hash table exist or finished.", Date.now());  
 
-    console.log("Connected successfully");
-  } catch (error) {
-    console.log(`Database connect failed... ${error.message}`);
-
-    process.exit(1);
-  }
-};
+    console.log("Connected successfully to PostgreSQL.");  
+  } catch (error) {  
+    console.log(`Database connect failed... ${error.message}`);  
+    process.exit(1);  
+  }  
+};  
 
 exports.loadExpress = ({ app }) => {
   try {

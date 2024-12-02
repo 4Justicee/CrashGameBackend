@@ -1,0 +1,29 @@
+version: '3.8'  
+
+services:  
+  app:  
+    container_name: crash-backend  
+    build: .  
+    ports:  
+      - "8088:8088"  
+      - "8089:8089"  
+    environment:  
+      - DATABASE_URL=postgres://postgres:password@db:5432/crashgame  
+
+    depends_on:  
+      - db  
+
+  db:  
+    container_name: postgres-db  
+    image: postgres:13  
+    environment:  
+      POSTGRES_DB: crashgame  
+      POSTGRES_USER: postgres  
+      POSTGRES_PASSWORD: password  
+    ports:  
+      - "5432:5432"  
+    volumes:  
+      - pgdata:/var/lib/postgresql/data  
+
+volumes:  
+  pgdata: 

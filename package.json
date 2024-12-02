@@ -1,11 +1,12 @@
 {
-    "name": "202_totalbridgeserver",
+    "name": "CrashGameBackEnd",
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
     "scripts": {
         "dev": "node index.js",
-        "run": "nodemon index.js"
+        "run": "nodemon index.js",
+        "build": "echo 'No build necessary for this project.'"
     },
     "author": "",
     "license": "ISC",
@@ -29,8 +30,8 @@
         "json5": "^2.2.3",
         "jsonwebtoken": "^9.0.2",
         "md5.js": "^1.3.5",
-        "moment": "^2.30.1",
-        "mysql2": "^3.9.2",
+        "moment": "^2.30.1", 
+        "pg": "^8.13.1",
         "request-ip": "^3.3.0",
         "rootpath": "^0.1.2",
         "sentry": "^0.1.2",
@@ -39,5 +40,10 @@
         "socket.io": "^4.7.4",
         "winston": "^3.11.0",
         "winston-daily-rotate-file": "^5.0.0"
+    },
+    "devDependencies": {
+        "@babel/cli": "^7.25.9",
+        "@babel/core": "^7.26.0",
+        "@babel/preset-env": "^7.26.0"
     }
 }
