@@ -18,6 +18,10 @@ module.exports = {
     pass: process.env.DB_PASS,
     url : process.env.DATABASE_URL
   },
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT),
+  },
 
   secretKey: process.env.SECRET_KEY,
   waitTime: process.env.WAIT_TIME,

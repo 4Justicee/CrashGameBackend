@@ -1,47 +1,55 @@
 version: '3.8'  
 
 services:  
-  backend:   
-    build:
-      context: ../CrashGameBackend  
-      dockerfile: Dockerfile  
+  backend:  
+    build: ./CrashGameBackend  
     ports:  
       - "8088:8088"  
       - "8089:8089"  
     environment:  
-      - DATABASE_URL=postgres://postgres:password@db:5432/crashgame  
-      - GAME_PORT=8088
+      - DATABASE_URL=postgres://postgres:newpassword@db:5432/crashgame 
+      - REDIS_URL=redis://redis:6379
     networks:  
-      - app-network 
+      - app-network  
     depends_on:  
-      - db  
-
-  frontend:    
-    build:
-      context: ../CrashGameFrontEnd  
-      dockerfile: Dockerfile  
-    ports:  
-      - "3000:3000"  
-    environment:  
-      - NODE_ENV=production
-    networks:  
-      - app-network 
-    depends_on:  
-      - backend  
-
+      db:  
+        condition: service_healthy  
+      redis:  
+        condition: service_healthy  
+        
   db:  
     image: postgres:13  
     environment:  
       POSTGRES_DB: crashgame  
       POSTGRES_USER: postgres  
-      POSTGRES_PASSWORD: password  
+      POSTGRES_PASSWORD: newpassword  
     ports:  
       - "5432:5432"  
     volumes:  
       - pgdata:/var/lib/postgresql/data  
-      
+    networks:  
+      - app-network  
+    healthcheck:  
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crashgame"]  
+      interval: 10s  
+      timeout: 5s  
+      retries: 5  
+
+  redis:  
+    image: redis:latest  
+    ports:  
+      - "6379:6379"  
+    networks:  
+      - app-network  
+    healthcheck:  
+      test: ["CMD", "redis-cli", "ping"]  
+      interval: 10s  
+      timeout: 5s  
+      retries: 5 
+
+volumes:  
+  pgdata:  
+
 networks:  
   app-network:  
-    driver: bridge 
-volumes:  
-  pgdata: 
+    driver: bridge  

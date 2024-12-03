@@ -12,38 +12,45 @@ const config = require("./config/preference");
 const { serverFunc, scheduleRemoveOldRecords } = require(`./controllers/crash`);
 const { connectWebSocket } = require("./controllers/websocket");
 
-exports.connectDb = async () => {  
-  try {  
-    const pool = new Pool({  
-      connectionString: config.database.url
-    });  
 
-    const client = await pool.connect();  
+exports.connectDb = async () => {     
+  const defaultConnectString = `postgres://${config.database.user}:${config.database.pass}@${config.database.host}:${config.database.port}/postgres`;
+  const realConnectString = `postgres://${config.database.user}:${config.database.pass}@${config.database.host}:${config.database.port}/${config.database.name}`;
+  let pool = new Pool({  
+    connectionString: defaultConnectString
+  }); 
+  let client = await pool.connect();  
+  try {      
     try {  
-      console.log(`Database (${config.database.name}) creating...`);  
-
-      //await client.query(`CREATE DATABASE "${config.database.name}"`);  
+      // First, try to create the database if it doesn't exist  
+      await client.query(`CREATE DATABASE "${config.database.name}"`);  
+      console.log(`Database (${config.database.name}) created.`);  
     } catch (error) {  
-      if (error.code === '42P04') {  // 42P04 is the code for "database already exists"  
+      if (error.code === '42P04') {   
         console.log(`Database already exists.`);  
       } else {  
-        console.log(`Database creation failed... ${error.message}`);  
-        process.exit(0);  
+        throw error;   
       }  
     } finally {  
       client.release();  
     }  
 
-    console.log("Please wait while transaction hash generating", Date.now());  
-    // Synchronize  
-    await database.sync();  
-    console.log("Hash table exist or finished.", Date.now());  
-
+    // Reconfigure the pool to connect to the newly created database, assuming creation or existence  
+    pool = new Pool({  
+      connectionString: realConnectString  
+    });  
+    client = await pool.connect();  
     console.log("Connected successfully to PostgreSQL.");  
+    
+    // Any additional setup, like schema or tables, should ideally be done here  
+    // Example: await client.query("CREATE TABLE IF NOT EXISTS ...");  
+    await database.sync();
   } catch (error) {  
-    console.log(`Database connect failed... ${error.message}`);  
+    console.error(`Database operation failed: ${error.message}`);  
     process.exit(1);  
-  }  
+  } finally {  
+    if (client) client.release();  // Ensure client is released in case of any failures  
+  } 
 };  
 
 exports.loadExpress = ({ app }) => {

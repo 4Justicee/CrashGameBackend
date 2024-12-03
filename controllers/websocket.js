@@ -8,6 +8,7 @@ async function connectWebSocket () {
   try {
     const port = config.gamePort;
     const wss = new WebSocket.Server({ port });
+    console.log('websocket started', port);
     wss.on('connection', (ws) => {
         console.log('New client connected!');
         clients.add(ws);  // Add new client to the set  

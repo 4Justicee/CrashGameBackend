@@ -139,6 +139,19 @@ async function processBetUsers() {
   
 }
 
+async function storeTransactionToRedis() {
+  try {
+    const tableName = `pat_${gameCode}`;
+    const redisKey = `${gameCode}-zero`;
+
+    let [result] = await patternConn.query(`SELECT * FROM ${tableName} WHERE pType = "base-zero" AND small = 1 ORDER BY RAND() LIMIT 1000;`);
+
+    await redisService.setJsonValue(redisKey, result);
+  } catch (error) {
+      logger("error", "Pattern | Store Zero to Redis", error.message);
+  }
+}
+
 async function gamePreProcessing() {
   gameRunning = true;  
   multiplier = 1.0;  
