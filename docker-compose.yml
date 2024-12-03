@@ -1,13 +1,11 @@
-version: '3.8'  
-
 services:  
   backend:  
-    build: ./CrashGameBackend  
-    ports:  
-      - "8088:8088"  
-      - "8089:8089"  
+    build: .
+    ports:
+      - "8088:8088"
+      - "8089:8089"
     environment:  
-      - DATABASE_URL=postgres://postgres:newpassword@db:5432/crashgame 
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/crashgame
       - REDIS_URL=redis://redis:6379
     networks:  
       - app-network  
@@ -20,9 +18,9 @@ services:
   db:  
     image: postgres:13  
     environment:  
-      POSTGRES_DB: crashgame  
-      POSTGRES_USER: postgres  
-      POSTGRES_PASSWORD: newpassword  
+      POSTGRES_DB: crashgame
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:  
       - "5432:5432"  
     volumes:  
