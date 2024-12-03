@@ -1,8 +1,7 @@
 version: '3.8'  
 
 services:  
-  backend:  
-    container_name: crash-backend      
+  backend:   
     build:
       context: ../CrashGameBackend  
       dockerfile: Dockerfile  
@@ -17,8 +16,7 @@ services:
     depends_on:  
       - db  
 
-  frontend:  
-    container_name: crash-frontend      
+  frontend:    
     build:
       context: ../CrashGameFrontEnd  
       dockerfile: Dockerfile  
@@ -32,7 +30,6 @@ services:
       - backend  
 
   db:  
-    container_name: postgres-db  
     image: postgres:13  
     environment:  
       POSTGRES_DB: crashgame  
