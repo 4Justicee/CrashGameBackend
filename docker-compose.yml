@@ -1,18 +1,35 @@
 version: '3.8'  
 
 services:  
-  app:  
-    container_name: crash-backend  
-    build: .  
+  backend:  
+    container_name: crash-backend      
+    build:
+      context: ../CrashGameBackend  
+      dockerfile: Dockerfile  
     ports:  
       - "8088:8088"  
       - "8089:8089"  
     environment:  
       - DATABASE_URL=postgres://postgres:password@db:5432/crashgame  
-
+    networks:  
+      - app-network 
     depends_on:  
       - db  
 
+  frontend:  
+    container_name: crash-frontend      
+    build:
+      context: ../CrashGameFrontEnd  
+      dockerfile: Dockerfile  
+    ports:  
+      - "3000:3000"  
+    environment:  
+      - NODE_ENV=production
+    networks:  
+      - app-network 
+    depends_on:  
+      - backend  
+      
   db:  
     container_name: postgres-db  
     image: postgres:13  
@@ -24,6 +41,9 @@ services:
       - "5432:5432"  
     volumes:  
       - pgdata:/var/lib/postgresql/data  
-
+      
+networks:  
+  app-network:  
+    driver: bridge 
 volumes:  
   pgdata: 
