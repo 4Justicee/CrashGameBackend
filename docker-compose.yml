@@ -12,7 +12,6 @@ services:
     environment:  
       - DATABASE_URL=postgres://postgres:password@db:5432/crashgame  
       - GAME_PORT=8088
-      - 'SECRET_KEY=!@#123456$%^'
     networks:  
       - app-network 
     depends_on:  
