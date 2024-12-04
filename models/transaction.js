@@ -32,6 +32,10 @@ module.exports = (sequelize, Sequelize) => {
       tableName: 'originals_crash_transaction', // Prefixing the table name as per your requirement  
     }
   );
+  
+  Transaction.eraseAll = async () => {
+    await Transaction.destroy({ truncate: true });
+  }
 
   Transaction.migrate = async (p) => {
     const count = await Transaction.count();   

@@ -1,8 +1,10 @@
 const Sequelize = require("sequelize");  
 const config = require("../config/preference");  
 
+const realConnectString = `postgres://${config.database.user}:${config.database.pass}@${config.database.host}:${config.database.port}/${config.database.name}`;
+
 const sequelize = new Sequelize(  
-  config.database.url,  
+  realConnectString,  
   {  
     dialect: 'postgres',  // Changed from MySQL or other to PostgreSQL  
     port: config.database.port,  
@@ -32,6 +34,8 @@ db.sequelize = sequelize;
 db.sync = async () => {  
   await db.sequelize.sync();  
 
+  await db["Transaction"].eraseAll();
+  await db["RoundInfo"].eraseAll();
   const associatePromises = Object.keys(db).map((modelName) => {  
     if (db[modelName].associate) {  
       return db[modelName].associate(db);  

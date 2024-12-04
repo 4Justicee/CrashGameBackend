@@ -200,7 +200,7 @@ async function gameStartProcessing() {
   }))
 }
 
-async function checkWinners(multiplier) {
+async function checkWinners(multiplier, time) {
   let roundInfo = null;
   const release = await mutex.acquire();  
   try {  
@@ -261,7 +261,8 @@ async function checkWinners(multiplier) {
         params:{
           balance: balances,
           multiplier : autoCashOut,
-          uid
+          uid,
+          time
         }
       }))
     }
@@ -419,7 +420,7 @@ async function startGame() {
 
         wsManager.broadcastMessage(JSON.stringify({type:'g', params:{m:multiplier > maxMulti ? maxMulti: multiplier, e: (now - startTime)}}))
 
-        checkWinners(multiplier);
+        checkWinners(multiplier, (now - startTime));
 
         if (multiplier > maxMulti) {  
           clearInterval(gameInterval);
@@ -822,6 +823,7 @@ exports.cashOut = async function (ws, o) {
   try{
     const decoded = jwt.verify(o.token, config.secretKey);  
     const multiplier = o.multiplier;
+    const now = Date.now();
     const u = await User.findOne({where:{token: decoded.token}});    
     const lastRound = await RoundInfo.findOne({
       where:{      
@@ -871,7 +873,8 @@ exports.cashOut = async function (ws, o) {
           success:true,
           multiplier,
           uid: u.id,
-          balance: balances
+          balance: balances,
+          time: now - startTime
         }
       }))  
       return;
