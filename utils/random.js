@@ -25,22 +25,21 @@ exports.isSame = (value1, value2)=> {
   return Math.abs(value1 - value2) < 1e-8;  
 }  
 
-exports.calculateCrashMultiplier = (serverSeed, salt="")=>{  
-  const nBits = 52; // number of most significant bits to use
+exports.generatePlinko = (clientSeed, serverSeed, nonce)=> {  
+  const hmac = crypto.createHmac('sha512', serverSeed);  
+  hmac.update(`${clientSeed}:${nonce}`);  
+  const hash = hmac.digest('hex');  
+  const directions = [];  
 
-  const hash = generateHash(serverSeed+salt);  
-  const hex = hash.substring(0, 13);  
-  const decimalValue = parseInt(hex, 16);  
+  // Divide the hash into 16 groups of 8 characters  
+  for (let i = 0; i < 16; i++) {  
+      // Convert each group to a number in the range [0, 1)  
+      const number = parseInt(hash.substring(i * 8, (i + 1) * 8), 16) / Math.pow(2, 32);  
+      // Determine the direction based on the number  
+      directions.push(number < 0.5);  
+  }  
 
-  let X = decimalValue / Math.pow(2, nBits); // uniformly distributed in [0; 1)
-  X = parseFloat(X.toPrecision(9));
-
-  X = main.rtp / (1 - X);
-
-  const result = Math.floor(X);
-  const crashPoint = Math.max(1, result / 100);
-
-  return {crashPoint, hash};  
+  return {hash, directions};  
 } 
 
 exports.getValueFromHash = (hash) => {

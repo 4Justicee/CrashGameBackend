@@ -7,61 +7,74 @@ module.exports = (sequelize, Sequelize) => {
         primaryKey: true,  
         autoIncrement: true,  
       },  
-      roundState: {  
-        type: Sequelize.SMALLINT, // Using SMALLINT instead of TINYINT (PostgreSQL doesn't have TINYINT)  
+      user_id: {  
+        type: Sequelize.INTEGER, // Using SMALLINT instead of TINYINT (PostgreSQL doesn't have TINYINT)  
         allowNull: false,  
         defaultValue: 0, // 0-preparing, 1-Running, 2-Finished.  
       },  
-      betUserList: {  
-        type: Sequelize.TEXT, // Using JSON type which is supported by PostgreSQL  
-        get() {
-          const val = this.getDataValue("betUserList");
-          return JSON.parse(val);
-        },
-      },  
-      cashOutUserList: {  
-        type: Sequelize.TEXT, // Using JSON type for better performance and native support  
-        get() {
-          const val = this.getDataValue("cashOutUserList");
-          return JSON.parse(val);
-        },
-      },  
-      roundTotalDebits: {  
+      user_seed : {  
         type: Sequelize.STRING, // Consider changing to a numeric type if these represent numeric values  
         allowNull: false,  
-        defaultValue: '0,0',  
+        defaultValue: '',  
       },  
-      roundTotalCredits: {  
+      nonce : {  
+        type: Sequelize.INTEGER, // Consider changing to a numeric type if these represent numeric values  
+        allowNull: false,  
+        defaultValue: 0,  
+      },  
+      server_seed: {  
+        type: Sequelize.STRING, // Consider changing to a numeric type if these represent numeric values  
+        allowNull: false,  
+        defaultValue: '',  
+      },  
+      hash: {  
+        type: Sequelize.STRING, // Consider changing to a numeric type if these represent numeric values  
+        allowNull: false,  
+        defaultValue: '',  
+      },  
+      bet_amount: {  
+        type: Sequelize.FLOAT, // Same consideration for numeric type  
+        allowNull: false,  
+        defaultValue: 0.0,  
+      },  
+      currency: {  
         type: Sequelize.STRING, // Same consideration for numeric type  
         allowNull: false,  
-        defaultValue: '0,0',  
-      },  
-      roundRtps: {  
+        defaultValue: 'BTC',  
+      },
+      risk: {  
+        type: Sequelize.SMALLINT, // Same consideration for numeric type  
+        allowNull: false,  
+        defaultValue: 0,  
+      },
+      rows: {  
+        type: Sequelize.SMALLINT, // Same consideration for numeric type  
+        allowNull: false,  
+        defaultValue: 8,  
+      },
+      path: {  
         type: Sequelize.STRING, // Same consideration for numeric type  
         allowNull: false,  
-        defaultValue: '0,0',  
+        defaultValue: '',  
+      },
+      multiplier: {  
+        type: Sequelize.FLOAT, // Same consideration for numeric type  
+        allowNull: false,  
+        defaultValue: 0.0,  
+      },  
+      win: {  
+        type: Sequelize.FLOAT, // Same consideration for numeric type  
+        allowNull: false,  
+        defaultValue: 0.0,  
       },  
     },  
     {  
       timestamps: true,  
-      tableName: 'originals_crash_info', // Prefixing the table name as per your requirement  
+      tableName: 'originals_plinko_info', // Prefixing the table name as per your requirement  
     }  
   );  
   RoundInfo.eraseAll = async () => {
     await RoundInfo.destroy({ truncate: true });
   }
-  RoundInfo.prototype.addUserData = async function (type, obj) {  
-    await this.reload();   
-    let list = [];   
-    if (['betUserList', 'cashOutUserList'].includes(type)) {  
-      let currentData = JSON.parse(this.getDataValue(type)) || [];  
-      list = [...currentData, obj]; // Simplifying the usage by leveraging the JSON type directly  
-      this.setDataValue(type, JSON.stringify(list));  
-      await this.save();  
-    } else {  
-      throw new Error("Invalid user list type");  
-    }  
-  };  
-
   return RoundInfo;  
 };  

@@ -45,7 +45,7 @@ module.exports = (sequelize, Sequelize) => {
     },  
     {  
       timestamps: true,  
-      tableName: 'originals_crash_balance',  // Custom table name with prefix  
+      tableName: 'originals_plinko_balance',  // Custom table name with prefix  
       indexes: [  // Optimizing user_id lookup  
         {  
           fields: ['user_id'],   

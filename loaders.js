@@ -9,7 +9,7 @@ const compression = require("compression");
 const cors = require("cors");
 const router = require("./controllers/routers");
 const config = require("./config/preference");
-const { serverFunc, scheduleRemoveOldRecords } = require(`./controllers/crash`);
+const { scheduleRemoveOldRecords } = require(`./controllers/plinko`);
 const { connectWebSocket } = require("./controllers/websocket");
 
 
@@ -86,7 +86,6 @@ exports.loadExpress = ({ app }) => {
 
 exports.startServerFunc = async () => {
   scheduleRemoveOldRecords();
-  await serverFunc();
 };
 
 exports.webSocket = async () => {

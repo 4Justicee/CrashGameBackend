@@ -22,7 +22,11 @@ module.exports = {
     host: process.env.REDIS_HOST,
     port: parseInt(process.env.REDIS_PORT),
   },
-
+  api: {
+    family: process.env.API_FAMILY,
+    endPoint: process.env.ENDPOINT_PATH,
+    version: process.env.API_VERSION
+  },
   secretKey: process.env.SECRET_KEY,
   waitTime: process.env.WAIT_TIME,
   rtp: process.env.RTP,

@@ -23,10 +23,8 @@ const db = {};
 
 db.User = require("./user")(sequelize, Sequelize);  
 db.RoundInfo = require("./roundInfo")(sequelize, Sequelize);  
-db.Prepare = require("./prepare")(sequelize, Sequelize);  
-db.Transaction = require("./transaction")(sequelize, Sequelize);  
 db.Balance = require("./balance")(sequelize, Sequelize);  
-db.AutoBet = require("./autobet")(sequelize, Sequelize);  
+
 
 db.Sequelize = Sequelize;  
 db.sequelize = sequelize;  
@@ -34,8 +32,9 @@ db.sequelize = sequelize;
 db.sync = async () => {  
   await db.sequelize.sync();  
 
-  await db["Transaction"].eraseAll();
+
   await db["RoundInfo"].eraseAll();
+
   const associatePromises = Object.keys(db).map((modelName) => {  
     if (db[modelName].associate) {  
       return db[modelName].associate(db);  

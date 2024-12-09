@@ -1,5 +1,4 @@
 const config = require("../config/preference");
-const crashController = require("../controllers/crash")
 const WebSocket = require('ws');
 
 const clients = new Set();  
@@ -7,35 +6,16 @@ const clients = new Set();
 async function connectWebSocket () {
   try {
     const port = config.gamePort;
-    const wss = new WebSocket.Server({ port });
+    const wss = new WebSocket.Server({
+      port, path: `/${config.api.family}/${config.api.endPoint}/${config.api.version}`
+    });
     console.log('websocket started', port);
-    wss.on('connection', (ws) => {
+    wss.on('connection', (ws, req) => {        
         console.log('New client connected!');
         clients.add(ws);  // Add new client to the set  
 
         ws.on('message', (message) => {                        
-          const o = JSON.parse(message);
-          if(o.type == 'authenticate') {
-            crashController.authenticate(ws);
-          }
-          if(o.type == 'login') {
-            crashController.login(ws, o);
-          }
-          if(o.type == 'placeBet') {
-            crashController.placeBet(ws, o);
-          }
-          if(o.type == 'cashOut') {
-            crashController.cashOut(ws, o);
-          }
-          if(o.type == 'cancelBet') {
-            crashController.cancelBet(ws, o);
-          }
-          if(o.type == 'autoBet') {
-            crashController.autoBet(ws, o);
-          }
-          if(o.type == 'cancelAutoBet') {
-            crashController.cancelAutoBet(ws, o);
-          }
+
         });
       
         // Handle client disconnection

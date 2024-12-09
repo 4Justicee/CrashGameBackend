@@ -8,7 +8,7 @@ module.exports = (sequelize, Sequelize) => {
         primaryKey: true,
         autoIncrement: true,
       },
-      userCode: {
+      user_code: {
         type: Sequelize.STRING,
         allowNull: false,
         defaultValue: "",
@@ -21,7 +21,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     {
       timestamps: true,
-      tableName: 'originals_crash_user', // Prefixing the table name as per your requirement  
+      tableName: 'originals_plinko_user', // Prefixing the table name as per your requirement  
     }
   );
 
